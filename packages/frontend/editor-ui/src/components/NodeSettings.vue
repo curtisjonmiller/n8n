@@ -70,7 +70,6 @@ const props = withDefaults(
 		inputSize: number;
 		activeNode?: INodeUi;
 		isEmbeddedInCanvas?: boolean;
-		noWheel?: boolean;
 		subTitle?: string;
 	}>(),
 	{
@@ -81,7 +80,6 @@ const props = withDefaults(
 		blockUI: false,
 		activeNode: undefined,
 		isEmbeddedInCanvas: false,
-		noWheel: false,
 		subTitle: undefined,
 	},
 );
@@ -816,9 +814,28 @@ function displayCredentials(credentialTypeDescription: INodeCredentialDescriptio
 }
 
 function handleWheelEvent(event: WheelEvent) {
-	if (event.ctrlKey) {
-		event.preventDefault();
+	if (!props.isEmbeddedInCanvas) {
+		// Following logic applies to embedded NDV only
+		return;
 	}
+
+	if (event.ctrlKey) {
+		// If the event is pinch, let it propagate and zoom canvas
+		return;
+	}
+
+	if (!shouldShowStaticScrollbar.value) {
+		// If the settings pane doesn't have to scroll, let it propagate and move the canvas
+		return;
+	}
+
+	// If the event has larger horizontal element, let it propagate and move the canvas
+	if (Math.abs(event.deltaX) >= Math.abs(event.deltaY)) {
+		return;
+	}
+
+	// Otherwise, let it scroll the settings pane
+	event.stopImmediatePropagation();
 }
 </script>
 
@@ -941,11 +958,10 @@ function handleWheelEvent(event: WheelEvent) {
 			:class="[
 				'node-parameters-wrapper',
 				shouldShowStaticScrollbar ? 'with-static-scrollbar' : '',
-				noWheel && shouldShowStaticScrollbar ? 'nowheel' : '',
 				{ 'ndv-v2': isNDVV2 },
 			]"
 			data-test-id="node-parameters"
-			@wheel="noWheel ? handleWheelEvent : undefined"
+			@wheel.capture="handleWheelEvent($event)"
 		>
 			<N8nNotice
 				v-if="hasForeignCredential && !isHomeProjectTeam"
@@ -1148,7 +1164,7 @@ function handleWheelEvent(event: WheelEvent) {
 	}
 
 	&.embedded .node-parameters-wrapper.with-static-scrollbar {
-		padding: 0 var(--spacing-2xs) var(--spacing-xs) var(--spacing-xs);
+		padding: 0 var(--spacing-4xs) var(--spacing-xs) var(--spacing-xs);
 
 		@supports not (selector(::-webkit-scrollbar)) {
 			scrollbar-width: thin;
